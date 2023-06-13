@@ -1,35 +1,18 @@
 version: 0.2
-env:
-  variables:
-    BUILD_CONFIGURATION: "production"
+
 phases:
-  install:
+  pre_build:
     commands:
-      - echo Installing source NPM dependencies...
-      - npm install
-      - npm install -g @angular/cli
-      - npm install --save-dev karma-junit-reporter
-      - wget --no-verbose https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-      - apt update && apt install -y libappindicator1 fonts-liberation ./google-chrome-stable_current_amd64.deb
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
   build:
     commands:
       - echo Build started on `date`
-      - ng build --configuration=${BUILD_CONFIGURATION}
+      - echo Building the Docker image...
+      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
   post_build:
     commands:
-      - echo Testing started on `date`
-      - ng test --reporters junit --watch=false
-artifacts:
-  files:
-    - "**/*"
-  base-directory: "dist*"
-  discard-paths: yes
-reports:
-  junit-reports:
-    files:
-      - "reports/junit/*.xml"
-    file-format: "JUNITXML"
-  coverage-reports:
-    files:
-      - "reports/coverage/*.xml"
-    file-format: "COBERTURAXML"
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
